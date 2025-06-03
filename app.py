@@ -37,8 +37,9 @@ def scrap_comments(url):
         if indent and indent.get('indent') == '0':
             comment_div = comment.find('div', class_='commtext')
             if comment_div:
-                comment_text = comment_div.get_text(strip=True)
+                comment_text = '\n\n'.join(str(element) for element in comment_div.stripped_strings)
                 if comment_text:
+                    print("comment_text", comment_text)
                     # Get comment ID for uniqueness
                     comment_id = comment.get('id', '')
                     # Get author if available
