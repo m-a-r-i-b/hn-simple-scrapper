@@ -198,5 +198,39 @@ def get_comments():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/mark_status', methods=['POST'])
+def mark_status():
+    """Mark a comment's application status"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        comment_id = data.get('comment_id', '')
+        status = data.get('status', '')
+        
+        if not url or not comment_id or not status:
+            return jsonify({'error': 'URL, comment_id, and status are required'}), 400
+        
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        all_data = load_data()
+        
+        if url_hash not in all_data:
+            return jsonify({'error': 'URL not found'}), 404
+        
+        # Find and update the comment
+        for comment in all_data[url_hash]['comments']:
+            if comment['id'] == comment_id:
+                # Toggle status if it's already set
+                if comment.get('status') == status:
+                    comment.pop('status', None)  # Remove status if clicking same button
+                else:
+                    comment['status'] = status
+                break
+        
+        save_data(all_data)
+        return jsonify({'message': 'Application status updated'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

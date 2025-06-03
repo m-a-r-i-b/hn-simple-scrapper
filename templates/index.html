@@ -342,6 +342,18 @@
                 gap: 0.5rem;
             }
         }
+
+        .btn-apply, .btn-applied {
+            background: #6c757d;
+        }
+
+        .btn-apply:hover {
+            background: #28a745;
+        }
+
+        .btn-applied:hover {
+            background: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -494,6 +506,16 @@
                             <button class="btn btn-small ${comment.read ? 'btn-unread' : 'btn-read'}" 
                                     onclick="toggleReadStatus('${comment.id}', ${!comment.read})">
                                 ${comment.read ? 'Mark Unread' : 'Mark Read'}
+                            </button>
+                            <button class="btn btn-small btn-apply" 
+                                    onclick="toggleApplyStatus('${comment.id}', 'to_apply')"
+                                    style="${comment.status === 'to_apply' ? 'background: #28a745;' : ''}">
+                                To Apply
+                            </button>
+                            <button class="btn btn-small btn-applied" 
+                                    onclick="toggleApplyStatus('${comment.id}', 'applied')"
+                                    style="${comment.status === 'applied' ? 'background: #007bff;' : ''}">
+                                Applied
                             </button>
                         </div>
                     </div>
@@ -657,6 +679,50 @@
                 } else {
                     const data = await response.json();
                     showStatus(data.error || 'Failed to update comment status', 'error');
+                }
+            } catch (error) {
+                showStatus('Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleApplyStatus(commentId, status) {
+            if (!currentUrl) return;
+
+            try {
+                const response = await fetch('/mark_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: currentUrl,
+                        comment_id: commentId,
+                        status: status
+                    })
+                });
+
+                if (response.ok) {
+                    // Update the UI
+                    const commentElement = document.getElementById(`comment-${commentId}`);
+                    const applyBtn = commentElement.querySelector('.btn-apply');
+                    const appliedBtn = commentElement.querySelector('.btn-applied');
+                    
+                    // Reset both buttons
+                    applyBtn.style.background = '#6c757d';
+                    appliedBtn.style.background = '#6c757d';
+                    
+                    // Highlight the active button
+                    if (status === 'to_apply') {
+                        applyBtn.style.background = '#28a745';
+                    } else if (status === 'applied') {
+                        appliedBtn.style.background = '#007bff';
+                    }
+
+                    // Update stats
+                    await loadExistingComments(currentUrl);
+                } else {
+                    const data = await response.json();
+                    showStatus(data.error || 'Failed to update application status', 'error');
                 }
             } catch (error) {
                 showStatus('Network error: ' + error.message, 'error');
