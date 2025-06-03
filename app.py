@@ -99,7 +99,8 @@ def scrape_comments():
             truly_new_comments = [comment for comment in new_comments if comment['id'] not in existing_ids]
             
             if truly_new_comments:
-                all_data[url_hash]['comments'].extend([divider] + truly_new_comments)
+                # Add new comments at the beginning, followed by the divider
+                all_data[url_hash]['comments'] = truly_new_comments + [divider] + all_data[url_hash]['comments']
                 all_data[url_hash]['last_scraped'] = datetime.now().isoformat()
             else:
                 return jsonify({
