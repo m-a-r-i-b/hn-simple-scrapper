@@ -58,8 +58,24 @@ def scrap_comments(url):
 
 @app.route('/')
 def index():
-    """Serve the main page"""
-    return render_template('index.html')
+    """Serve the main page with existing threads"""
+    all_data = load_data()
+    threads = []
+    for url_hash, data in all_data.items():
+        thread_data = {
+            'url': data['url'],
+            'first_scraped': data['first_scraped'],
+            'last_scraped': data['last_scraped'],
+            'total_comments': len([c for c in data['comments'] if not c.get('is_divider', False)]),
+            'unread_comments': len([c for c in data['comments'] if not c.get('is_divider', False) and not c.get('read', False)])
+        }
+        threads.append(thread_data)
+    
+    # Return JSON if requested
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({'threads': threads})
+    
+    return render_template('index.html', threads=threads)
 
 @app.route('/scrape', methods=['POST'])
 def scrape_comments():

@@ -247,6 +247,84 @@
             margin-bottom: 1rem;
         }
 
+        /* Thread cards styles */
+        .threads-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .thread-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .thread-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .thread-card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            word-break: break-all;
+        }
+
+        .thread-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .thread-dates {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .thread-dates p {
+            margin-bottom: 0.3rem;
+        }
+
+        .views-container {
+            position: relative;
+        }
+
+        #threadsView, #commentsView {
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        #commentsView {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+
+        .back-button {
+            background: transparent;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .back-button:hover {
+            color: #5a6fd8;
+        }
+
         @media (max-width: 768px) {
             .input-group {
                 flex-direction: column;
@@ -273,26 +351,58 @@
             <p>Scrape and manage comments from Hacker News threads</p>
         </div>
 
-        <div class="input-section">
-            <div class="input-group">
-                <input type="url" id="urlInput" placeholder="Enter Hacker News thread URL (e.g., https://news.ycombinator.com/item?id=123456)" />
-                <button class="btn" id="scrapeBtn" onclick="scrapeComments()">Scrape Comments</button>
-            </div>
-            <div class="status" id="status"></div>
-        </div>
+        <div class="views-container">
+            <div id="threadsView">
+                <div class="input-section">
+                    <div class="input-group">
+                        <input type="url" id="urlInput" placeholder="Enter Hacker News thread URL (e.g., https://news.ycombinator.com/item?id=123456)" />
+                        <button class="btn" id="scrapeBtn" onclick="scrapeComments()">Scrape Comments</button>
+                    </div>
+                    <div class="status" id="status"></div>
+                </div>
 
-        <div class="comments-section" id="commentsSection" style="display: none;">
-            <div class="comments-header">
-                <h2>Comments</h2>
-                <div class="header-controls">
-                    <label class="toggle-container">
-                        <input type="checkbox" id="remoteFilter" onchange="toggleRemoteFilter()">
-                        <span class="toggle-label">Show Remote Only</span>
-                    </label>
-                    <div class="stats" id="stats"></div>
+                <div class="threads-grid" id="threadsGrid">
+                    {% if threads %}
+                        {% for thread in threads %}
+                            <div class="thread-card" onclick="loadThread('{{ thread.url }}')">
+                                <h3>{{ thread.url }}</h3>
+                                <div class="thread-stats">
+                                    <span>Total: {{ thread.total_comments }}</span>
+                                    <span>Unread: {{ thread.unread_comments }}</span>
+                                </div>
+                                <div class="thread-dates">
+                                    <p>First scraped: {{ thread.first_scraped }}</p>
+                                    <p>Last updated: {{ thread.last_scraped }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <h3>No threads yet</h3>
+                            <p>Start by scraping your first Hacker News thread!</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
-            <div id="commentsList"></div>
+
+            <div id="commentsView">
+                <button class="back-button" onclick="showThreadsView()">
+                    ← Back to Threads
+                </button>
+                <div class="comments-section">
+                    <div class="comments-header">
+                        <h2>Comments</h2>
+                        <div class="header-controls">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="remoteFilter" onchange="toggleRemoteFilter()">
+                                <span class="toggle-label">Show Remote Only</span>
+                            </label>
+                            <div class="stats" id="stats"></div>
+                        </div>
+                    </div>
+                    <div id="commentsList"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -300,6 +410,24 @@
         let currentUrl = '';
         let allComments = []; // Store all comments
         let isRemoteFilterActive = false;
+
+        function showThreadsView() {
+            document.getElementById('threadsView').style.display = 'block';
+            document.getElementById('commentsView').style.display = 'none';
+            currentUrl = '';
+            allComments = [];
+        }
+
+        function showCommentsView() {
+            document.getElementById('threadsView').style.display = 'none';
+            document.getElementById('commentsView').style.display = 'block';
+        }
+
+        async function loadThread(url) {
+            currentUrl = url;
+            await loadExistingComments(url);
+            showCommentsView();
+        }
 
         function showStatus(message, type) {
             const status = document.getElementById('status');
@@ -380,6 +508,46 @@
             renderComments(allComments, false);
         }
 
+        async function updateThreadsGrid() {
+            try {
+                const response = await fetch('/', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const threadsGrid = document.getElementById('threadsGrid');
+                    const data = await response.json();
+                    
+                    if (data.threads && data.threads.length > 0) {
+                        threadsGrid.innerHTML = data.threads.map(thread => `
+                            <div class="thread-card" onclick="loadThread('${thread.url}')">
+                                <h3>${thread.url}</h3>
+                                <div class="thread-stats">
+                                    <span>Total: ${thread.total_comments}</span>
+                                    <span>Unread: ${thread.unread_comments}</span>
+                                </div>
+                                <div class="thread-dates">
+                                    <p>First scraped: ${thread.first_scraped}</p>
+                                    <p>Last updated: ${thread.last_scraped}</p>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        threadsGrid.innerHTML = `
+                            <div class="empty-state">
+                                <h3>No threads yet</h3>
+                                <p>Start by scraping your first Hacker News thread!</p>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating threads grid:', error);
+            }
+        }
+
         async function scrapeComments() {
             const urlInput = document.getElementById('urlInput');
             const scrapeBtn = document.getElementById('scrapeBtn');
@@ -398,9 +566,6 @@
             scrapeBtn.disabled = true;
             scrapeBtn.textContent = 'Scraping...';
             
-            // First, load existing comments if any
-            await loadExistingComments(url);
-
             try {
                 const response = await fetch('/scrape', {
                     method: 'POST',
@@ -416,7 +581,11 @@
                     currentUrl = url;
                     showStatus(data.message, 'success');
                     renderComments(data.comments);
-                    document.getElementById('commentsSection').style.display = 'block';
+                    showCommentsView();
+                    // Clear the input field
+                    urlInput.value = '';
+                    // Update the threads grid in the background
+                    await updateThreadsGrid();
                 } else {
                     showStatus(data.error || 'An error occurred', 'error');
                 }
@@ -443,7 +612,7 @@
                 if (response.ok && data.comments.length > 0) {
                     currentUrl = url;
                     renderComments(data.comments);
-                    document.getElementById('commentsSection').style.display = 'block';
+                    showCommentsView();
                 }
             } catch (error) {
                 console.log('No existing comments found');
